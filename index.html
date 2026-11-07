@@ -1,0 +1,1550 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font-size: 14px; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Gloamgate</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one full-bleed canvas world; a thin HUD rail on top, cards float over the dark. Single dark look by design. */
+:root {
+  color-scheme: dark;
+  --void: #05060a;
+  --ink: #ece4d2;
+  --dim: #9a9282;
+  --brass: #dcac4e;
+  --danger: #ff6b5e;
+  --stam: #8fd3ff;
+  --panel: rgba(13, 14, 20, 0.82);
+  --line: rgba(236, 228, 210, 0.14);
+  --font-display: "Major Mono Display", "Courier New", monospace;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--font-body);
+  overflow: hidden;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; background: var(--void); }
+
+.hud {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: max(16px, env(safe-area-inset-left, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap;
+  pointer-events: none; z-index: 5;
+}
+.hud-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 9px; color: var(--ink); white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+.chip .lbl { color: var(--dim); text-transform: uppercase; font-size: 10px; letter-spacing: 0.12em; }
+.chip svg { width: 15px; height: 15px; flex: none; }
+#keychip { color: var(--dim); }
+#keychip.got { color: var(--brass); border-color: rgba(220, 172, 78, 0.5); }
+#battchip { color: var(--brass); }
+#battchip.low { color: var(--danger); border-color: rgba(255, 107, 94, 0.5); }
+#battchip.off .bar i { opacity: 0.45; }
+.bar { width: 34px; height: 9px; border: 1.5px solid currentColor; border-radius: 2px; position: relative; overflow: hidden; }
+.bar i { position: absolute; inset: 1px auto 1px 1px; background: currentColor; width: 100%; border-radius: 1px; }
+.dots { display: inline-flex; gap: 4px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0.4; }
+.dot.on { opacity: 1; }
+button {
+  font: 500 13px var(--font-body); color: var(--ink);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 11px; cursor: pointer; pointer-events: auto;
+}
+button:hover { border-color: rgba(236, 228, 210, 0.35); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+button.primary { background: var(--brass); color: #1a1408; border-color: var(--brass); font-weight: 600; padding: 10px 18px; font-size: 14px; }
+button.primary:hover { filter: brightness(1.08); }
+#btn-code { font-family: var(--font-mono); font-size: 12px; }
+#btn-code .lbl { color: var(--dim); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; margin-right: 4px; }
+
+.round {
+  position: fixed; z-index: 6;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  width: 68px; height: 68px; border-radius: 50%; padding: 0;
+  display: grid; place-items: center; align-content: center; gap: 2px;
+  font: 600 10px var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase;
+  touch-action: none; -webkit-touch-callout: none;
+}
+.round svg { width: 24px; height: 24px; }
+#btn-run { bottom: calc(env(safe-area-inset-bottom, 0px) + 104px); color: var(--stam); }
+#btn-run.active { background: var(--stam); color: #0b1a24; border-color: var(--stam); }
+@media (hover: hover) and (pointer: fine) { #btn-run { display: none; } }
+#stamchip { color: var(--stam); }
+#stamchip.tired { color: var(--dim); }
+#btn-light[aria-pressed="true"] { color: #1a1408; background: rgba(255, 227, 160, 0.9); border-color: rgba(255, 227, 160, 0.9); }
+#btn-light[aria-pressed="false"] { color: var(--dim); }
+
+.seedpanel {
+  position: fixed; z-index: 9;
+  top: calc(env(safe-area-inset-top, 0px) + 60px);
+  right: max(16px, env(safe-area-inset-right, 0px));
+  width: min(360px, calc(100% - 32px));
+  background: rgba(10, 11, 16, 0.94); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; display: grid; gap: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  -webkit-user-select: text; user-select: text;
+}
+.seedpanel .row { flex-wrap: nowrap; }
+.seedpanel input {
+  flex: 1; min-width: 0;
+  font: 500 15px var(--font-mono); color: var(--ink); letter-spacing: 0.04em;
+  background: #0b0c11; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px;
+}
+.seedpanel button.primary { padding: 9px 16px; }
+.seedpanel .hint { margin: 0; font-size: 13px; line-height: 1.5; color: var(--dim); }
+.seedpanel .now { font-family: var(--font-mono); font-size: 13px; color: var(--dim); flex: 1; }
+.seedpanel .now b { color: var(--ink); }
+.err { margin: 0; font-size: 13px; color: var(--danger); }
+
+.overlay {
+  position: fixed; inset: 0; z-index: 10;
+  display: grid; place-items: end center;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(env(safe-area-inset-top, 0px) + 64px) calc(env(safe-area-inset-bottom, 0px) + 28px);
+  pointer-events: none;
+}
+.overlay.center { place-items: center; background: rgba(3, 4, 7, 0.72); pointer-events: auto; overflow-y: auto; }
+.card {
+  pointer-events: auto;
+  width: min(560px, 100%);
+  background: rgba(10, 11, 16, 0.88);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 22px 24px 20px;
+  display: grid; gap: 14px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+}
+.eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+h1, h2 { font-family: var(--font-display); font-weight: 400; margin: 0; line-height: 1; text-wrap: balance; }
+h1 { font-size: clamp(34px, 8vw, 52px); letter-spacing: 0.02em; }
+h2 { font-size: clamp(24px, 5.5vw, 34px); }
+#lose h2 { color: var(--danger); }
+.card p { margin: 0; font-size: 15px; line-height: 1.55; color: #d7cfbd; max-width: 62ch; }
+.card p.warn { color: #e8b8ae; }
+.controls { display: grid; gap: 6px; font-size: 13px; color: var(--dim); }
+.controls kbd {
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink);
+  border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px;
+}
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.best { font-family: var(--font-mono); font-size: 12px; color: var(--dim); }
+.linkish { background: none; border: none; padding: 0; color: var(--brass); text-decoration: underline; text-underline-offset: 3px; font-size: 13px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+.stat { display: grid; gap: 2px; }
+.stat b { font-family: var(--font-mono); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+.mapwrap { display: flex; justify-content: center; overflow-x: auto; }
+.mapwrap canvas { border-radius: 6px; max-width: 100%; }
+.legend { font-size: 12px; color: var(--dim); line-height: 1.5; }
+
+#toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 108px);
+  z-index: 8; max-width: calc(100% - 32px);
+  font: 500 14px var(--font-body); color: var(--ink);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 9px 14px; text-align: center;
+  transition: opacity 0.3s; opacity: 0; pointer-events: none;
+}
+#toast.show { opacity: 1; }
+@media (max-width: 560px) {
+  .chip { font-size: 11px; padding: 5px 7px; }
+  .hide-sm { display: none; }
+  .card { padding: 18px 18px 16px; }
+}
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Maze view, lit by the player's flashlight"></canvas>
+
+<div class="hud">
+  <div class="hud-group">
+    <span class="chip"><span class="lbl">Depth</span> <b id="depth">1</b></span>
+    <span class="chip" id="battchip" title="Flashlight battery">
+      <span class="bar"><i id="battfill"></i></span><span id="batttext">100%</span>
+    </span>
+    <span class="chip" id="stamchip" title="Stamina for sprinting">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+      <span class="bar"><i id="stamfill"></i></span>
+    </span>
+    <span class="chip" id="keychip" title="Brass key">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="7" cy="12" r="4"/><path d="M11 12h10M18 12v3M21 12v4"/></svg>
+      <span id="keytext">No key</span>
+    </span>
+    <span class="chip" id="gatechip"><span class="lbl">Gates</span> <span class="dots" id="gatedots"></span></span>
+    <span class="chip"><span id="timer">0:00</span></span>
+  </div>
+  <div class="hud-group">
+    <button id="btn-code" type="button" aria-expanded="false" aria-controls="seedpanel"><span class="lbl hide-sm">Code</span><span id="codetext">1-000000</span></button>
+    <button id="btn-pause" type="button" title="Pause (P or Esc)">Pause</button>
+    <button id="btn-sound" type="button" class="hide-sm">Sound on</button>
+    <button id="btn-new" type="button">New maze</button>
+  </div>
+</div>
+
+<form class="seedpanel" id="seedpanel" hidden autocomplete="off">
+  <label class="eyebrow" for="seed-input">Play a maze code</label>
+  <div class="row">
+    <input id="seed-input" name="seed" type="text" placeholder="3-2FF7DF or any word" maxlength="40" spellcheck="false" autocapitalize="characters">
+    <button class="primary" type="submit">Play</button>
+  </div>
+  <p class="err" id="seed-err" hidden></p>
+  <div class="row">
+    <span class="now">This maze: <b id="code-now">1-000000</b></span>
+    <button type="button" id="btn-copy">Copy code</button>
+  </div>
+  <p class="hint">A code is the depth, a dash, then six characters. Anyone who plays the same code gets the same maze, gates, batteries and hunter starting spots, so you can race each other. Any word works as a code too. The game pauses while this is open.</p>
+</form>
+
+<button id="btn-run" class="round" type="button" title="Hold to sprint (Shift)">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+  <span>Run</span>
+</button>
+<button id="btn-light" class="round" type="button" aria-pressed="true" title="Toggle flashlight (F or Space)">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10v4l-3 4v9h-4v-9L7 7z"/><path d="M7 7h10"/></svg>
+  <span id="lighttext">On</span>
+</button>
+
+<div class="overlay" id="intro">
+  <div class="card">
+    <div class="eyebrow" id="intro-eyebrow">Depth 1</div>
+    <h1>gloamgate</h1>
+    <p>The maze is cut into sealed sections. Colored gates connect them in pairs: step into a rim and you come out at its twin. Find the brass key, then take the stairs down.</p>
+    <p class="warn">Your flashlight drains its battery, and the spares hidden in dead ends only add a fifth of a charge each. Something else is down here. It is faster than you walk but slower than you sprint. It sees your light from far off and hears you move nearby. With the light off and your feet still, it cannot find you.</p>
+    <div class="controls">
+      <div><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or arrows to walk, hold <kbd>Shift</kbd> to sprint. The mouse aims the light. <kbd>F</kbd> or <kbd>Space</kbd> turns it on and off.</div>
+      <div>On a phone, drag anywhere to walk, hold Run to sprint, and tap the light button.</div>
+    </div>
+    <div class="row">
+      <button class="primary" id="btn-start" type="button">Enter the maze</button>
+      <button class="linkish" id="btn-havecode" type="button">Have a maze code?</button>
+      <span class="best" id="best"></span>
+    </div>
+  </div>
+</div>
+
+<div class="overlay center" id="win" hidden>
+  <div class="card">
+    <div class="eyebrow" id="win-eyebrow">Maze 1-000000</div>
+    <h2 id="win-title">depth 1 cleared</h2>
+    <div class="stats">
+      <div class="stat"><b id="st-time">0:00</b><span>Time</span></div>
+      <div class="stat"><b id="st-steps">0</b><span>Paces</span></div>
+      <div class="stat"><b id="st-jumps">0</b><span>Gate jumps</span></div>
+      <div class="stat"><b id="st-batt">0%</b><span>Battery left</span></div>
+    </div>
+    <div class="mapwrap"><canvas id="map"></canvas></div>
+    <div class="legend">The whole maze, revealed. Sections are tinted, lines join each gate to its twin, the gold line is the route you walked, and red marks show where the hunters were.</div>
+    <div class="row">
+      <button class="primary" id="btn-next" type="button">Descend to depth 2</button>
+      <button id="btn-replay" type="button">Replay this maze</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay center" id="pause" hidden>
+  <div class="card">
+    <div class="eyebrow" id="pause-eyebrow">Maze 1-000000</div>
+    <h2>paused</h2>
+    <p id="pause-status">Everything in the maze is frozen until you come back.</p>
+    <div class="row">
+      <button class="primary" id="btn-resume" type="button">Resume</button>
+      <button id="btn-restart" type="button">Restart this maze</button>
+      <button id="btn-new3" type="button">New maze</button>
+    </div>
+    <div class="controls"><div>Press <kbd>P</kbd> or <kbd>Esc</kbd> to resume. The game also pauses itself when you switch tabs or windows.</div></div>
+  </div>
+</div>
+
+<div class="overlay center" id="lose" hidden>
+  <div class="card">
+    <div class="eyebrow" id="lose-eyebrow">Maze 1-000000</div>
+    <h2>caught in the dark</h2>
+    <div class="stats">
+      <div class="stat"><b id="lt-time">0:00</b><span>Survived</span></div>
+      <div class="stat"><b id="lt-steps">0</b><span>Paces</span></div>
+      <div class="stat"><b id="lt-key">No</b><span>Had the key</span></div>
+      <div class="stat"><b id="lt-batt">0%</b><span>Battery left</span></div>
+    </div>
+    <div class="mapwrap"><canvas id="map2"></canvas></div>
+    <div class="legend">Red marks show where the hunters were. They follow your light from far away. Switch it off and stand still to let one pass.</div>
+    <div class="row">
+      <button class="primary" id="btn-retry" type="button">Try this maze again</button>
+      <button id="btn-new2" type="button">New maze</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const TAU = Math.PI * 2;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const GATES = [
+  { c: '#ff4d5e', n: 'Crimson' }, { c: '#ffb02e', n: 'Amber' }, { c: '#7be04a', n: 'Moss' },
+  { c: '#33d6e8', n: 'Cyan' }, { c: '#a07cff', n: 'Violet' }, { c: '#ff5fd2', n: 'Orchid' },
+  { c: '#f2efe4', n: 'Bone' }, { c: '#3f7dff', n: 'Cobalt' }, { c: '#ff7a2e', n: 'Ember' },
+  { c: '#2ee8a0', n: 'Jade' }, { c: '#ffe14d', n: 'Citrine' }, { c: '#c84dff', n: 'Plum' },
+];
+const hexA = (hex, a) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+};
+
+/* ---------- seeded RNG ---------- */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const randSeed = () => Math.floor(Math.random() * 0xFFFFFF);
+
+/* ---------- level generation ---------- */
+function generate(seed, depth) {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const L = tryGenerate(seed * 31 + attempt * 7919 + depth, depth);
+    if (L) { L.seed = seed; return L; }
+  }
+  throw new Error('maze generation failed');
+}
+
+function tryGenerate(rseed, depth) {
+  const R = mulberry32(rseed);
+  const ri = n => Math.floor(R() * n);
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = ri(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  const base = Math.min(9 + depth * 3, 30);
+  const cw = base + 3, ch = base;
+  const nReg = Math.min(3 + depth, 10);
+  const N = cw * ch;
+  const cx = c => c % cw, cy = c => (c / cw) | 0;
+  const nbrs = c => {
+    const x = cx(c), y = cy(c), out = [];
+    if (x > 0) out.push(c - 1);
+    if (x < cw - 1) out.push(c + 1);
+    if (y > 0) out.push(c - cw);
+    if (y < ch - 1) out.push(c + cw);
+    return out;
+  };
+
+  // 1. grow sections from well-spread seeds
+  const reg = new Int16Array(N).fill(-1);
+  const seeds = [];
+  for (let r = 0; r < nReg; r++) {
+    let best = -1, bd = -1;
+    for (let k = 0; k < 30; k++) {
+      const c = ri(N);
+      if (reg[c] !== -1) continue;
+      let md = 1e9;
+      for (const s of seeds) { const dx = cx(c) - cx(s), dy = cy(c) - cy(s); md = Math.min(md, dx * dx + dy * dy); }
+      if (md > bd) { bd = md; best = c; }
+    }
+    if (best < 0) return null;
+    seeds.push(best); reg[best] = r;
+  }
+  const frontier = seeds.map(s => nbrs(s));
+  let remaining = N - nReg;
+  while (remaining > 0) {
+    let r = ri(nReg), tries = 0;
+    while (frontier[r].length === 0 && tries < nReg) { r = (r + 1) % nReg; tries++; }
+    if (frontier[r].length === 0) return null;
+    const f = frontier[r], i = ri(f.length), c = f[i];
+    f[i] = f[f.length - 1]; f.pop();
+    if (reg[c] !== -1) continue;
+    reg[c] = r; remaining--;
+    for (const n of nbrs(c)) if (reg[n] === -1) f.push(n);
+  }
+
+  // 2. carve a maze inside each section (never across a border)
+  const TW = cw * 2 + 1, TH = ch * 2 + 1;
+  const tiles = new Uint8Array(TW * TH).fill(1);
+  const tileReg = new Int16Array(TW * TH).fill(-1);
+  const cellTile = c => (cy(c) * 2 + 1) * TW + cx(c) * 2 + 1;
+  const midTile = (a, b) => (cy(a) + cy(b) + 1) * TW + (cx(a) + cx(b) + 1);
+  for (let c = 0; c < N; c++) { tiles[cellTile(c)] = 0; tileReg[cellTile(c)] = reg[c]; }
+  const carve = (a, b) => { const m = midTile(a, b); tiles[m] = 0; tileReg[m] = reg[a]; };
+  const visited = new Uint8Array(N);
+  for (let r = 0; r < nReg; r++) {
+    const stack = [seeds[r]]; visited[seeds[r]] = 1;
+    while (stack.length) {
+      const c = stack[stack.length - 1];
+      const opts = nbrs(c).filter(n => reg[n] === r && !visited[n]);
+      if (!opts.length) { stack.pop(); continue; }
+      const n = opts[ri(opts.length)];
+      carve(c, n); visited[n] = 1; stack.push(n);
+    }
+  }
+  for (let c = 0; c < N; c++) if (!visited[c]) return null;
+  for (let c = 0; c < N; c++) {
+    for (const n of [c + 1, c + cw]) {
+      if ((n === c + 1 && cx(c) === cw - 1) || n >= N) continue;
+      if (reg[n] === reg[c] && tiles[midTile(c, n)] === 1 && R() < 0.05) carve(c, n);
+    }
+  }
+  const isOpen = (a, b) => tiles[midTile(a, b)] === 0;
+
+  const cells = Array.from({ length: nReg }, () => []);
+  for (let c = 0; c < N; c++) cells[reg[c]].push(c);
+
+  // 3. link sections with gate pairs: random spanning tree plus a few extra links
+  const order = shuffle([...Array(nReg).keys()]);
+  const edges = [], has = new Set();
+  const ek = (a, b) => a < b ? a + ',' + b : b + ',' + a;
+  for (let i = 1; i < nReg; i++) {
+    const a = order[i], b = order[ri(i)];
+    edges.push([a, b]); has.add(ek(a, b));
+  }
+  const extra = Math.floor(nReg / 4);
+  for (let k = 0, t = 0; k < extra && t < 60; t++) {
+    const a = ri(nReg), b = ri(nReg);
+    if (a === b || has.has(ek(a, b))) continue;
+    edges.push([a, b]); has.add(ek(a, b)); k++;
+  }
+  const gateCount = new Array(nReg).fill(0);
+  for (const [a, b] of edges) { gateCount[a]++; gateCount[b]++; }
+  for (let r = 0; r < nReg; r++) if (cells[r].length < Math.max(gateCount[r] + 7, 0.3 * N / nReg)) return null;
+
+  const adj = Array.from({ length: nReg }, () => []);
+  for (const [a, b] of edges) { adj[a].push(b); adj[b].push(a); }
+  const bfsReg = s => {
+    const d = new Array(nReg).fill(-1); d[s] = 0; const q = [s];
+    while (q.length) { const u = q.shift(); for (const v of adj[u]) if (d[v] < 0) { d[v] = d[u] + 1; q.push(v); } }
+    return d;
+  };
+  const startR = ri(nReg);
+  const dS = bfsReg(startR);
+  const maxD = Math.max(...dS);
+  const farthest = shuffle([...Array(nReg).keys()].filter(r => dS[r] === maxD));
+  const exitR = farthest[0];
+  const dE = bfsReg(exitR);
+  let keyR = -1, bestScore = -1;
+  for (const r of shuffle([...Array(nReg).keys()])) {
+    if (r === startR || r === exitR) continue;
+    const s = dS[r] + dE[r];
+    if (s > bestScore) { bestScore = s; keyR = r; }
+  }
+
+  // 4. place gates (dead ends first), then key, exit, start, batteries, hunters
+  const used = new Set();
+  const nearUsed = c => nbrs(c).some(n => used.has(n));
+  const openCount = c => nbrs(c).filter(n => reg[n] === reg[c] && isOpen(c, n)).length;
+  const pickDeadEnd = r => {
+    const pool = shuffle(cells[r].slice());
+    return pool.find(c => !used.has(c) && !nearUsed(c) && openCount(c) === 1)
+      ?? pool.find(c => !used.has(c) && !nearUsed(c))
+      ?? pool.find(c => !used.has(c));
+  };
+  const toWorld = c => ({ x: cx(c) * 2 + 1.5, y: cy(c) * 2 + 1.5 });
+  const colorOrder = shuffle([...Array(GATES.length).keys()]);
+  const portals = [];
+  edges.forEach((e, pi) => {
+    const gi = colorOrder[pi];
+    const ids = [];
+    for (const r of e) {
+      const c = pickDeadEnd(r);
+      used.add(c);
+      ids.push(portals.length);
+      portals.push({ ...toWorld(c), cell: c, region: r, pair: pi, color: GATES[gi].c, name: GATES[gi].n, glyph: gi, partner: -1, pulse: 0 });
+    }
+    portals[ids[0]].partner = ids[1]; portals[ids[1]].partner = ids[0];
+  });
+  const distFrom = (r, sources) => {
+    const d = new Map(); const q = [];
+    for (const s of sources) { d.set(s, 0); q.push(s); }
+    while (q.length) {
+      const u = q.shift();
+      for (const v of nbrs(u)) if (reg[v] === r && isOpen(u, v) && !d.has(v)) { d.set(v, d.get(u) + 1); q.push(v); }
+    }
+    return d;
+  };
+  const farCell = r => {
+    const d = distFrom(r, portals.filter(p => p.region === r).map(p => p.cell));
+    let best = -1, bd = -1;
+    for (const c of cells[r]) { if (used.has(c)) continue; const v = (d.get(c) ?? 0) + R() * 0.5; if (v > bd) { bd = v; best = c; } }
+    return best;
+  };
+  const keyC = farCell(keyR); used.add(keyC);
+  const exitC = farCell(exitR); used.add(exitC);
+  const dStart = distFrom(startR, portals.filter(p => p.region === startR).map(p => p.cell));
+  const startPool = shuffle(cells[startR].filter(c => !used.has(c)));
+  const startC = startPool.find(c => (dStart.get(c) ?? 0) >= 3) ?? startPool[0];
+  if (keyC < 0 || exitC < 0 || startC === undefined) return null;
+  used.add(startC);
+  const sOpen = nbrs(startC).find(n => reg[n] === startR && isOpen(startC, n));
+  const st = toWorld(startC);
+  const face = sOpen !== undefined ? Math.atan2(cy(sOpen) - cy(startC), cx(sOpen) - cx(startC)) : 0;
+
+  const batteries = [];
+  for (const r of [...shuffle([...Array(nReg).keys()]), ri(nReg)]) {
+    const c = pickDeadEnd(r);
+    if (c === undefined) continue;
+    used.add(c); batteries.push(toWorld(c));
+  }
+
+  const nHunt = depth <= 2 ? 1 : depth <= 5 ? 2 : 3;
+  const far = [...Array(nReg).keys()].filter(r => r !== startR).sort((a, b) => dS[b] - dS[a]);
+  const hunters = [];
+  for (let k = 0; k < nHunt; k++) {
+    const r = far[k % far.length];
+    const pool = cells[r].filter(c => !used.has(c));
+    const c = pool[ri(pool.length)];
+    used.add(c); hunters.push(toWorld(c));
+  }
+
+  return {
+    depth, cw, ch, TW, TH, tiles, tileReg, nReg, portals, pairs: edges.length,
+    pairInfo: edges.map((e, pi) => GATES[colorOrder[pi]]),
+    key: toWorld(keyC), exit: toWorld(exitC), start: { ...st, face }, batteries, hunters,
+  };
+}
+
+/* ---------- canvases ---------- */
+const cv = $('#game'), ctx = cv.getContext('2d');
+const dark = document.createElement('canvas'), dctx = dark.getContext('2d');
+const light = document.createElement('canvas'), lctx = light.getContext('2d');
+const mem = document.createElement('canvas'), mctx = mem.getContext('2d');
+let W = 0, H = 0, DPR = 1, S = 40;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.floor(innerWidth * DPR); H = Math.floor(innerHeight * DPR);
+  for (const c of [cv, dark, light]) { c.width = W; c.height = H; }
+  S = clamp(Math.min(innerWidth, innerHeight) / 13, 30, 54) * DPR;
+}
+addEventListener('resize', resize);
+
+/* ---------- state ---------- */
+const RANGE = 8.5, HALF = 0.6, HALO = 2.4, DARK_HALO = 1.3, PR = 0.27;
+const WALK = 3.2, SPRINT = 5.2;  // tiles per second; the hunter's chase speed sits between these
+const STAM_DRAIN = 1 / 4;        // a full stamina bar lasts 4 seconds of sprinting
+const STAM_WALK = 1 / 14;        // refills in 14 s while walking
+const STAM_REST = 1 / 8;         // refills in 8 s while standing still
+const STAM_RECOVER = 0.3;        // after running dry, sprint unlocks again at 30%
+const DRAIN = 1 / 75;            // a full battery lasts 75 seconds of light
+const BATTERY_GAIN = 0.2;
+const MEMORY = 0.06;         // how much of the remembered maze shows in the dark
+let L = null, G = null, depth = 1, mode = 'intro', T = 0, paused = false, menuPaused = false;
+let aimMode = 'move', mouse = null, stick = null, sprintHeld = false;
+const keys = new Set();
+let motes = [];
+
+const tileIdx = (x, y) => Math.floor(y) * L.TW + Math.floor(x);
+const codeStr = () => `${depth}-${L.seed.toString(16).toUpperCase().padStart(6, '0')}`;
+
+function newLevel(seed, d) {
+  depth = d;
+  L = generate(seed, d);
+  L.floorTiles = [];
+  for (let i = 0; i < L.tiles.length; i++) if (L.tiles[i] === 0) L.floorTiles.push(i);
+  L.portalAt = new Int16Array(L.TW * L.TH).fill(-1);
+  L.portals.forEach((p, i) => { L.portalAt[tileIdx(p.x, p.y)] = i; });
+  G = {
+    px: L.start.x, py: L.start.y, aim: L.start.face, hasKey: false,
+    seen: new Uint8Array(L.TW * L.TH), trail: [[L.start.x, L.start.y]],
+    jumps: 0, dist: 0, time: 0, lock: -1, used: new Set(),
+    flash: null, camX: L.start.x, camY: L.start.y, exitWarn: false,
+    battery: 1, lightOn: false, flick: 0, flickCD: 1, moving: false,
+    stamina: 1, exhausted: false, sprinting: false,
+    batt: L.batteries.map(b => ({ ...b, taken: false })),
+    hunters: L.hunters.map(h => ({ x: h.x, y: h.y, state: 'wander', path: [], repath: 0.5 + Math.random() * 2, wait: 1 + Math.random() * 2, last: -1, sawAt: -99, face: Math.random() * TAU })),
+    beat: 0, spottedOnce: false, deadWarned: false,
+  };
+  mem.width = L.TW; mem.height = L.TH;
+  mctx.clearRect(0, 0, L.TW, L.TH); mctx.fillStyle = '#fff';
+  motes = Array.from({ length: 46 }, () => spawnMote(true));
+  updateHUD(); updateLightUI();
+  $('#intro-eyebrow').textContent = `Depth ${depth} · Maze ${codeStr()}`;
+}
+function spawnMote(anywhere) {
+  const a = Math.random() * TAU, r = anywhere ? Math.random() * 8 : 6 + Math.random() * 2;
+  return { x: G.px + Math.cos(a) * r, y: G.py + Math.sin(a) * r, vx: (Math.random() - 0.5) * 0.15, vy: (Math.random() - 0.5) * 0.15, s: 0.012 + Math.random() * 0.022, ph: Math.random() * TAU };
+}
+
+/* ---------- grid helpers ---------- */
+const isWall = (x, y) => x < 0 || y < 0 || x >= L.TW || y >= L.TH || L.tiles[y * L.TW + x] === 1;
+function markSeen(x, y) {
+  if (x < 0 || y < 0 || x >= L.TW || y >= L.TH) return;
+  const i = y * L.TW + x;
+  if (!G.seen[i]) { G.seen[i] = 1; mctx.fillRect(x, y, 1, 1); }
+}
+function castRay(ox, oy, ang, maxD, mark, ext) {
+  const dx = Math.cos(ang), dy = Math.sin(ang);
+  let mx = Math.floor(ox), my = Math.floor(oy);
+  const ddx = Math.abs(1 / dx), ddy = Math.abs(1 / dy);
+  let stepX, stepY, sx, sy;
+  if (dx < 0) { stepX = -1; sx = (ox - mx) * ddx; } else { stepX = 1; sx = (mx + 1 - ox) * ddx; }
+  if (dy < 0) { stepY = -1; sy = (oy - my) * ddy; } else { stepY = 1; sy = (my + 1 - oy) * ddy; }
+  let d = 0;
+  for (let guard = 0; guard < 200; guard++) {
+    if (sx < sy) { d = sx; sx += ddx; mx += stepX; } else { d = sy; sy += ddy; my += stepY; }
+    if (d > maxD) return maxD;
+    if (isWall(mx, my)) { if (mark) markSeen(mx, my); return Math.min(d + ext, maxD); }
+    if (mark) markSeen(mx, my);
+  }
+  return maxD;
+}
+function lineOfSight(ax, ay, bx, by) {
+  const d = Math.hypot(bx - ax, by - ay);
+  if (d < 0.01) return true;
+  return castRay(ax, ay, Math.atan2(by - ay, bx - ax), d, false, 0) >= d - 0.01;
+}
+function rayPoly(ox, oy, a0, a1, n, maxD) {
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const a = a0 + (a1 - a0) * i / n;
+    const d = castRay(ox, oy, a, maxD, true, 0.42);
+    pts.push(ox + Math.cos(a) * d, oy + Math.sin(a) * d);
+  }
+  return pts;
+}
+function pathPoly(c, pts, ox, oy) {
+  c.beginPath();
+  if (ox !== undefined) c.moveTo(ox, oy); else c.moveTo(pts[0], pts[1]);
+  for (let i = 0; i < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1]);
+  c.closePath();
+}
+function collide() {
+  for (let it = 0; it < 2; it++) {
+    const x0 = Math.floor(G.px - PR), x1 = Math.floor(G.px + PR);
+    const y0 = Math.floor(G.py - PR), y1 = Math.floor(G.py + PR);
+    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+      if (!isWall(tx, ty)) continue;
+      const nx = clamp(G.px, tx, tx + 1), ny = clamp(G.py, ty, ty + 1);
+      const dx = G.px - nx, dy = G.py - ny, d2 = dx * dx + dy * dy;
+      if (d2 < PR * PR) {
+        const d = Math.sqrt(d2) || 1e-4;
+        G.px += dx / d * (PR - d); G.py += dy / d * (PR - d);
+      }
+    }
+  }
+}
+const angDiff = (a, b) => { let d = (a - b) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; };
+
+// shortest walk between tiles, gates included
+let bfsPrev = null, bfsQ = null;
+function bfsPath(from, to) {
+  if (from === to || L.tiles[to] !== 0) return [];
+  const n = L.TW * L.TH, TW = L.TW;
+  if (!bfsPrev || bfsPrev.length !== n) { bfsPrev = new Int32Array(n); bfsQ = new Int32Array(n); }
+  bfsPrev.fill(-1); bfsPrev[from] = from;
+  let h = 0, t = 0; bfsQ[t++] = from;
+  while (h < t) {
+    const u = bfsQ[h++];
+    if (u === to) break;
+    const c0 = u - 1, c1 = u + 1, c2 = u - TW, c3 = u + TW;
+    for (const v of [c0, c1, c2, c3]) {
+      if (v >= 0 && v < n && L.tiles[v] === 0 && bfsPrev[v] === -1) { bfsPrev[v] = u; bfsQ[t++] = v; }
+    }
+    const pi = L.portalAt[u];
+    if (pi >= 0) {
+      const q = L.portals[L.portals[pi].partner], v = tileIdx(q.x, q.y);
+      if (bfsPrev[v] === -1) { bfsPrev[v] = u; bfsQ[t++] = v; }
+    }
+  }
+  if (bfsPrev[to] === -1) return [];
+  const path = [];
+  for (let v = to; v !== from; v = bfsPrev[v]) path.push(v);
+  return path.reverse();
+}
+
+/* ---------- audio ---------- */
+let AC = null, soundOn = true;
+function ensureAudio() {
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } }
+  if (AC && AC.state === 'suspended') AC.resume().catch(() => {});
+}
+function tone(f, dur, type = 'sine', vol = 0.07, f2 = 0, delay = 0) {
+  if (!AC || !soundOn) return;
+  const now = AC.currentTime + delay;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, now);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, now + dur);
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(vol, now + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  o.connect(g).connect(AC.destination);
+  o.start(now); o.stop(now + dur + 0.05);
+}
+const sfx = {
+  gate: () => { tone(180, 0.4, 'sine', 0.08, 760); tone(270, 0.35, 'triangle', 0.03, 1100, 0.03); },
+  farGate: v => tone(120, 0.5, 'sine', 0.05 * v, 420),
+  key: () => { tone(880, 0.5, 'triangle', 0.06); tone(1320, 0.6, 'triangle', 0.05, 0, 0.12); tone(1760, 0.7, 'sine', 0.04, 0, 0.24); },
+  battery: () => { tone(520, 0.12, 'square', 0.025); tone(780, 0.18, 'square', 0.025, 0, 0.09); },
+  locked: () => tone(130, 0.18, 'square', 0.025, 90),
+  click: () => tone(2200, 0.03, 'square', 0.015),
+  winded: () => { tone(320, 0.25, 'triangle', 0.03, 180); tone(300, 0.3, 'triangle', 0.025, 170, 0.32); },
+  dead: () => { tone(400, 0.4, 'sawtooth', 0.025, 80); },
+  spotted: () => { tone(1100, 0.35, 'sawtooth', 0.03, 260); tone(1170, 0.35, 'sawtooth', 0.02, 240, 0.02); },
+  beat: v => { tone(58, 0.14, 'sine', 0.16 * v, 42); tone(52, 0.16, 'sine', 0.12 * v, 38, 0.17); },
+  caught: () => { tone(90, 1.0, 'sawtooth', 0.12, 35); tone(140, 0.7, 'square', 0.04, 50); },
+  win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.6, 'triangle', 0.05, 0, i * 0.11)),
+};
+
+/* ---------- HUD ---------- */
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function updateHUD() {
+  $('#depth').textContent = depth;
+  $('#codetext').textContent = codeStr();
+  $('#code-now').textContent = codeStr();
+  $('#keychip').classList.toggle('got', G.hasKey);
+  $('#keytext').textContent = G.hasKey ? 'Key found' : 'No key';
+  $('#gatedots').innerHTML = L.pairInfo.map((g, i) =>
+    `<span class="dot${G.used.has(i) ? ' on' : ''}" style="color:${g.c};${G.used.has(i) ? 'background:' + g.c : ''}" title="${g.n} gate${G.used.has(i) ? ', traveled' : ''}"></span>`).join('');
+  $('#gatechip').title = `${G.used.size} of ${L.pairs} gate pairs traveled`;
+  lastBatt = -1; lastStam = -1;
+}
+let lastSec = -1, lastBatt = -1;
+function updateTimer() {
+  const s = Math.floor(G.time);
+  if (s !== lastSec) { lastSec = s; $('#timer').textContent = fmtTime(G.time); }
+  const b = Math.ceil(G.battery * 100);
+  if (b !== lastBatt) {
+    lastBatt = b;
+    $('#batttext').textContent = b + '%';
+    $('#battfill').style.width = `calc(${b}% - 2px)`;
+    $('#battchip').classList.toggle('low', b <= 20);
+  }
+  const st = Math.round(G.stamina * 50) + (G.exhausted ? 100 : 0);
+  if (st !== lastStam) {
+    lastStam = st;
+    $('#stamfill').style.width = `calc(${G.stamina * 100}% - 2px)`;
+    $('#stamchip').classList.toggle('tired', G.exhausted);
+  }
+}
+let lastStam = -1;
+function updateLightUI() {
+  const on = G.lightOn && G.battery > 0;
+  $('#btn-light').setAttribute('aria-pressed', String(on));
+  $('#lighttext').textContent = on ? 'On' : 'Off';
+  $('#battchip').classList.toggle('off', !on);
+}
+function loadBest() { try { return parseInt(localStorage.getItem('gloamgate.best') || '0', 10) || 0; } catch (e) { return 0; } }
+function saveBest(v) { try { localStorage.setItem('gloamgate.best', String(v)); } catch (e) {} }
+function showBest() { const b = loadBest(); $('#best').textContent = b ? `Deepest: depth ${b}` : ''; }
+
+/* ---------- maze codes ---------- */
+function parseCode(s) {
+  s = s.trim();
+  if (!s) return null;
+  let m = s.match(/^(\d{1,2})\s*-\s*([0-9a-f]{1,6})$/i);
+  if (m) return { depth: clamp(parseInt(m[1], 10), 1, 99), seed: parseInt(m[2], 16) };
+  m = s.match(/^[0-9a-f]{6}$/i);
+  if (m) return { depth, seed: parseInt(s, 16) };
+  let h = 2166136261;
+  for (const ch of s.toLowerCase()) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); }
+  return { depth, seed: (h >>> 0) & 0xFFFFFF };
+}
+function openPanel(open) {
+  const p = $('#seedpanel');
+  p.hidden = !open; paused = open;
+  $('#btn-code').setAttribute('aria-expanded', String(open));
+  $('#seed-err').hidden = true;
+  if (open) { keys.clear(); stick = null; $('#seed-input').focus(); }
+}
+$('#btn-code').addEventListener('click', () => openPanel($('#seedpanel').hidden));
+$('#btn-havecode').addEventListener('click', () => openPanel(true));
+$('#seedpanel').addEventListener('submit', e => {
+  e.preventDefault();
+  const c = parseCode($('#seed-input').value);
+  if (!c) { const er = $('#seed-err'); er.textContent = 'Type a code like 3-2FF7DF, or any word.'; er.hidden = false; return; }
+  loadMaze(c.seed, c.depth);
+  openPanel(false);
+  $('#seed-input').value = '';
+  toast(`Loaded maze ${codeStr()}`);
+});
+$('#btn-copy').addEventListener('click', () => {
+  const code = codeStr();
+  const fallback = () => { const i = $('#seed-input'); i.value = code; i.focus(); i.select(); toast('Code selected in the box. Copy it from there.'); };
+  try { navigator.clipboard.writeText(code).then(() => toast(`Copied ${code}`), fallback); } catch (e) { fallback(); }
+});
+
+function loadMaze(seed, d) {
+  newLevel(seed, d);
+  $('#win').hidden = true; $('#lose').hidden = true;
+  if (mode === 'won' || mode === 'lost') mode = 'play';
+}
+
+/* ---------- input ---------- */
+const MOVE_KEYS = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'];
+addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('#seedpanel').hidden) { openPanel(false); return; }
+  if (e.target instanceof HTMLInputElement) return;
+  const k = e.key.toLowerCase();
+  if ((k === 'escape' || k === 'p') && mode === 'play' && !e.repeat) { e.preventDefault(); setPause(!menuPaused); return; }
+  if (menuPaused) return;
+  if (MOVE_KEYS.includes(k)) e.preventDefault();
+  const onButton = document.activeElement?.tagName === 'BUTTON';
+  if (mode === 'intro' && (k === 'enter' || k === ' ') && !onButton) { e.preventDefault(); startPlay(); return; }
+  if (mode === 'play' && !paused && (k === 'f' || (k === ' ' && !onButton))) { e.preventDefault(); if (!e.repeat) toggleLight(); return; }
+  keys.add(k);
+});
+addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+addEventListener('blur', () => { keys.clear(); setPause(true); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) setPause(true); });
+
+function setPause(on) {
+  if (on && (mode !== 'play' || menuPaused || paused)) return;
+  if (!on && !menuPaused) return;
+  menuPaused = on;
+  keys.clear(); stick = null; sprintHeld = false; runBtn.classList.remove('active');
+  $('#pause').hidden = !on;
+  $('#btn-pause').textContent = on ? 'Resume' : 'Pause';
+  if (on) {
+    $('#pause-eyebrow').textContent = `Maze ${codeStr()} · depth ${depth} · ${fmtTime(G.time)}`;
+    const chased = G.hunters.some(h => h.state === 'hunt');
+    $('#pause-status').textContent = chased
+      ? 'Something is chasing you. It is frozen too, for now.'
+      : 'Everything in the maze is frozen until you come back.';
+    $('#btn-resume').focus();
+  } else {
+    document.activeElement?.blur?.();
+  }
+}
+$('#btn-pause').addEventListener('click', () => { if (menuPaused) setPause(false); else setPause(true); });
+$('#btn-resume').addEventListener('click', () => setPause(false));
+$('#btn-restart').addEventListener('click', () => { setPause(false); loadMaze(L.seed, depth); toast(`Restarted maze ${codeStr()}`); });
+$('#btn-new3').addEventListener('click', () => { setPause(false); loadMaze(randSeed(), depth); toast(`New maze ${codeStr()}`); });
+cv.addEventListener('pointermove', e => {
+  if (e.pointerType === 'mouse') { mouse = { x: e.clientX * DPR, y: e.clientY * DPR }; aimMode = 'mouse'; }
+  else if (stick && e.pointerId === stick.id) { stick.x = e.clientX; stick.y = e.clientY; }
+});
+cv.addEventListener('pointerdown', e => {
+  if (!$('#seedpanel').hidden) { openPanel(false); return; }
+  if (e.pointerType === 'mouse') return;
+  if (mode === 'intro') startPlay();
+  stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
+  aimMode = 'move';
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+});
+const endStick = e => { if (stick && e.pointerId === stick.id) stick = null; };
+cv.addEventListener('pointerup', endStick);
+cv.addEventListener('pointercancel', endStick);
+
+function toggleLight() {
+  if (G.battery <= 0) { toast('The battery is dead. Find a spare.'); sfx.locked(); return; }
+  G.lightOn = !G.lightOn; sfx.click(); updateLightUI();
+}
+$('#btn-light').addEventListener('click', () => {
+  ensureAudio();
+  if (mode === 'intro') startPlay();
+  if (mode === 'play' && !paused && !menuPaused) toggleLight();
+  $('#btn-light').blur();
+});
+const runBtn = $('#btn-run');
+runBtn.addEventListener('pointerdown', e => {
+  e.preventDefault(); ensureAudio();
+  if (mode === 'intro') startPlay();
+  sprintHeld = true; runBtn.classList.add('active');
+  try { runBtn.setPointerCapture(e.pointerId); } catch (err) {}
+});
+const releaseRun = () => { sprintHeld = false; runBtn.classList.remove('active'); };
+runBtn.addEventListener('pointerup', releaseRun);
+runBtn.addEventListener('pointercancel', releaseRun);
+runBtn.addEventListener('lostpointercapture', releaseRun);
+runBtn.addEventListener('contextmenu', e => e.preventDefault());
+$('#btn-start').addEventListener('click', () => startPlay());
+$('#btn-new').addEventListener('click', () => { loadMaze(randSeed(), depth); toast(`New maze ${codeStr()}`); $('#btn-new').blur(); });
+$('#btn-new2').addEventListener('click', () => { loadMaze(randSeed(), depth); });
+$('#btn-sound').addEventListener('click', () => {
+  soundOn = !soundOn; ensureAudio();
+  $('#btn-sound').textContent = soundOn ? 'Sound on' : 'Sound off';
+  $('#btn-sound').blur();
+});
+$('#btn-next').addEventListener('click', () => { newLevel(randSeed(), depth + 1); $('#win').hidden = true; mode = 'play'; lightHint(); });
+$('#btn-replay').addEventListener('click', () => loadMaze(L.seed, depth));
+$('#btn-retry').addEventListener('click', () => loadMaze(L.seed, depth));
+
+function startPlay() {
+  if (mode !== 'intro') return;
+  ensureAudio();
+  mode = 'play';
+  $('#intro').hidden = true;
+  lightHint();
+}
+function lightHint() {
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  toast(fine ? 'Your flashlight is off. Press F to turn it on.' : 'Your flashlight is off. Tap the light button to turn it on.');
+}
+
+/* ---------- hunters ---------- */
+function huntSpeed() { return Math.min(3.8 + (depth - 1) * 0.1, 4.6); }
+function pickWanderTile() {
+  const ft = L.floorTiles;
+  if (G.time > 20 && Math.random() < 0.35) {
+    const pr = L.tileReg[tileIdx(G.px, G.py)];
+    for (let i = 0; i < 40; i++) { const t = ft[Math.floor(Math.random() * ft.length)]; if (L.tileReg[t] === pr) return t; }
+  }
+  return ft[Math.floor(Math.random() * ft.length)];
+}
+function hunterSees(h) {
+  if (G.time < 4) return false;
+  const lit = G.lightOn && G.battery > 0;
+  if (!lit && !G.moving) return false;          // dark and still: invisible
+  const d = Math.hypot(h.x - G.px, h.y - G.py);
+  if (lit && d < 13 && lineOfSight(h.x, h.y, G.px, G.py)) return true;
+  if (G.moving && d < 4.5 && lineOfSight(h.x, h.y, G.px, G.py)) return true;
+  if (G.moving && d < (G.sprinting ? 3 : 1.8)) return true;   // hears footsteps through walls; running is louder
+  return false;
+}
+function updateHunters(dt) {
+  const ptile = tileIdx(G.px, G.py), TW = L.TW;
+  for (const h of G.hunters) {
+    if (hunterSees(h)) {
+      if (h.state !== 'hunt') {
+        h.repath = 0; sfx.spotted();
+        if (!G.spottedOnce) { G.spottedOnce = true; toast('It has seen you. Run, or kill the light and hold still.'); }
+      }
+      h.state = 'hunt'; h.last = ptile; h.sawAt = G.time;
+    } else if (h.state === 'hunt' && G.time - h.sawAt > 0.8) {
+      h.state = 'search'; h.repath = 0;
+    }
+
+    if (h.state === 'hunt' && Math.hypot(h.x - G.px, h.y - G.py) < 0.5) { loseLevel(); return; }
+
+    h.wait -= dt; h.repath -= dt;
+    if (h.wait > 0 && h.state !== 'hunt') continue;
+    if (h.repath <= 0) {
+      const ht = tileIdx(h.x, h.y);
+      if (h.state === 'hunt') { h.path = bfsPath(ht, ptile); h.repath = 0.25; }
+      else if (h.state === 'search') { h.path = bfsPath(ht, h.last); h.repath = 1.5; }
+      else { if (!h.path.length) h.path = bfsPath(ht, pickWanderTile()); h.repath = 3; }
+    }
+    if (!h.path.length) {
+      if (h.state === 'search') { h.state = 'wander'; h.wait = 1.5 + Math.random(); }
+      else if (h.state === 'wander') { h.wait = 0.5 + Math.random() * 1.5; h.repath = 0; }
+      continue;
+    }
+    const speed = h.state === 'hunt' ? huntSpeed() : h.state === 'search' ? 2.8 : 1.6;
+    let step = speed * dt;
+    while (step > 0 && h.path.length) {
+      const nt = h.path[0], ntx = nt % TW, nty = (nt / TW) | 0;
+      const ct = tileIdx(h.x, h.y), ctx_ = ct % TW, cty = (ct / TW) | 0;
+      if (Math.abs(ntx - ctx_) + Math.abs(nty - cty) > 1) {
+        const pi = L.portalAt[ct];
+        if (pi < 0) { h.path = []; h.repath = 0; break; }
+        const cx = ctx_ + 0.5, cy = cty + 0.5, dd = Math.hypot(cx - h.x, cy - h.y);
+        if (dd > step) { h.x += (cx - h.x) / dd * step; h.y += (cy - h.y) / dd * step; step = 0; break; }
+        step -= dd; h.x = ntx + 0.5; h.y = nty + 0.5; h.path.shift();
+        const p = L.portals[pi]; p.pulse = 1; L.portals[p.partner].pulse = 1;
+        const near = Math.min(Math.hypot(p.x - G.px, p.y - G.py), Math.hypot(L.portals[p.partner].x - G.px, L.portals[p.partner].y - G.py));
+        if (near < 14) sfx.farGate(1 - near / 14);
+        continue;
+      }
+      const nx = ntx + 0.5, ny = nty + 0.5, dx = nx - h.x, dy = ny - h.y, dd = Math.hypot(dx, dy);
+      if (dd > 1e-4) h.face += angDiff(Math.atan2(dy, dx), h.face) * Math.min(1, dt * 10);
+      if (dd <= step) { h.x = nx; h.y = ny; step -= dd; h.path.shift(); }
+      else { h.x += dx / dd * step; h.y += dy / dd * step; step = 0; }
+    }
+  }
+}
+
+/* ---------- update ---------- */
+function update(dt) {
+  for (const m of motes) {
+    if (!reduceMotion) { m.x += m.vx * dt; m.y += m.vy * dt; m.ph += dt; }
+    if (Math.hypot(m.x - G.px, m.y - G.py) > 9) Object.assign(m, spawnMote(false));
+  }
+  if (G.flash) { G.flash.t += dt; if (G.flash.t > 0.5) G.flash = null; }
+  for (const p of L.portals) if (p.pulse > 0) p.pulse = Math.max(0, p.pulse - dt * 0.9);
+
+  if (mode !== 'play' || paused || menuPaused) {
+    if (mode === 'intro') G.aim = L.start.face + Math.sin(T * 0.6) * 1.1;
+    G.camX += (G.px - G.camX) * Math.min(1, dt * 8);
+    G.camY += (G.py - G.camY) * Math.min(1, dt * 8);
+    return;
+  }
+  G.time += dt;
+
+  let mx = 0, my = 0;
+  if (keys.has('arrowleft') || keys.has('a')) mx -= 1;
+  if (keys.has('arrowright') || keys.has('d')) mx += 1;
+  if (keys.has('arrowup') || keys.has('w')) my -= 1;
+  if (keys.has('arrowdown') || keys.has('s')) my += 1;
+  if (stick) {
+    const sx = stick.x - stick.ox, sy = stick.y - stick.oy, sl = Math.hypot(sx, sy);
+    if (sl > 8) { const k = Math.min(1, sl / 50); mx += sx / sl * k; my += sy / sl * k; }
+  }
+  const len = Math.hypot(mx, my);
+  if (len > 1) { mx /= len; my /= len; }
+  G.moving = false;
+  if (G.exhausted && G.stamina >= STAM_RECOVER) G.exhausted = false;
+  G.sprinting = (keys.has('shift') || sprintHeld) && len > 0.01 && !G.exhausted && G.stamina > 0;
+  if (len > 0.01) {
+    const ox = G.px, oy = G.py, sp = G.sprinting ? SPRINT : WALK;
+    G.px += mx * sp * dt; collide();
+    G.py += my * sp * dt; collide();
+    const moved = Math.hypot(G.px - ox, G.py - oy);
+    G.dist += moved;
+    G.moving = moved > 0.002;
+    const lt = G.trail[G.trail.length - 1];
+    if (!lt || Math.hypot(G.px - lt[0], G.py - lt[1]) > 0.3) G.trail.push([G.px, G.py]);
+  }
+  if (G.sprinting && G.moving) {
+    G.stamina = Math.max(0, G.stamina - STAM_DRAIN * dt);
+    if (G.stamina === 0) { G.exhausted = true; G.sprinting = false; sfx.winded(); }
+  } else {
+    G.sprinting = false;
+    G.stamina = Math.min(1, G.stamina + (G.moving ? STAM_WALK : STAM_REST) * dt);
+  }
+
+  let target = G.aim, rate = 0;
+  if (aimMode === 'mouse' && mouse) {
+    const sx = (G.px - G.camX) * S + W / 2, sy = (G.py - G.camY) * S + H / 2;
+    target = Math.atan2(mouse.y - sy, mouse.x - sx); rate = 22;
+  } else if (len > 0.01) { target = Math.atan2(my, mx); rate = 9; }
+  if (rate) G.aim += angDiff(target, G.aim) * Math.min(1, rate * dt);
+
+  // battery
+  if (G.lightOn && G.battery > 0) {
+    G.battery = Math.max(0, G.battery - DRAIN * dt);
+    if (G.battery === 0) { G.lightOn = false; sfx.dead(); updateLightUI(); toast('The battery died. Find a spare in the dark.'); }
+    if (G.battery < 0.15) {
+      G.flickCD -= dt;
+      if (G.flickCD <= 0) { G.flick = 0.05 + Math.random() * 0.12; G.flickCD = 0.25 + Math.random() * (0.4 + G.battery * 10); }
+    }
+  }
+  if (G.flick > 0) G.flick -= dt;
+  for (const b of G.batt) {
+    if (!b.taken && Math.hypot(G.px - b.x, G.py - b.y) < 0.45) {
+      b.taken = true;
+      G.battery = Math.min(1, G.battery + BATTERY_GAIN);
+      sfx.battery(); updateLightUI();
+      toast(`Battery found. Charge is now ${Math.ceil(G.battery * 100)}%.`);
+    }
+  }
+
+  // key
+  if (!G.hasKey && Math.hypot(G.px - L.key.x, G.py - L.key.y) < 0.45) {
+    G.hasKey = true; sfx.key(); updateHUD();
+    toast('Brass key found. The stairs are unlocked.');
+  }
+  // exit
+  const de = Math.hypot(G.px - L.exit.x, G.py - L.exit.y);
+  if (de < 0.4) {
+    if (G.hasKey) { winLevel(); return; }
+    if (!G.exitWarn) { G.exitWarn = true; sfx.locked(); toast('The stairs are barred. Find the brass key first.'); }
+  } else if (de > 0.9) G.exitWarn = false;
+  // gates
+  for (let i = 0; i < L.portals.length; i++) {
+    const p = L.portals[i], d = Math.hypot(G.px - p.x, G.py - p.y);
+    if (G.lock === i) { if (d > 0.55) G.lock = -1; continue; }
+    if (d < 0.3) { jump(i); break; }
+  }
+
+  updateHunters(dt);
+  if (mode !== 'play') return;
+
+  // heartbeat when something is close or chasing
+  let threat = 0;
+  for (const h of G.hunters) {
+    const d = Math.hypot(h.x - G.px, h.y - G.py);
+    if (h.state === 'hunt' && d < 18) threat = Math.max(threat, 1 - d / 22);
+    else if (d < 6) threat = Math.max(threat, 0.6 * (1 - d / 6));
+  }
+  G.threat = threat;
+  if (threat > 0) {
+    G.beat -= dt;
+    if (G.beat <= 0) { sfx.beat(0.4 + threat * 0.6); G.beat = 1.15 - threat * 0.7; }
+  } else G.beat = 0;
+
+  G.camX += (G.px - G.camX) * Math.min(1, dt * 8);
+  G.camY += (G.py - G.camY) * Math.min(1, dt * 8);
+}
+
+function jump(i) {
+  const p = L.portals[i], q = L.portals[p.partner];
+  const first = !G.used.has(p.pair);
+  G.px = q.x; G.py = q.y; G.lock = p.partner;
+  G.camX = q.x; G.camY = q.y;
+  G.jumps++; G.used.add(p.pair);
+  G.trail.push(null, [q.x, q.y]);
+  G.flash = { c: p.color, t: 0 };
+  p.pulse = 1; q.pulse = 1;
+  // a hunter that watched you step in follows you through
+  for (const h of G.hunters) {
+    if (h.state === 'hunt' && G.time - h.sawAt < 0.6) { h.state = 'search'; h.last = tileIdx(q.x, q.y); h.repath = 0; }
+  }
+  sfx.gate(); updateHUD();
+  if (first) toast(`${p.name} gate traveled`);
+}
+
+function finishStats() {
+  let floors = 0, seenF = 0;
+  for (let i = 0; i < L.tiles.length; i++) if (L.tiles[i] === 0) { floors++; if (G.seen[i]) seenF++; }
+  return { seen: Math.round(seenF / floors * 100) };
+}
+function winLevel() {
+  mode = 'won'; sfx.win();
+  if (depth > loadBest()) saveBest(depth);
+  $('#win-eyebrow').textContent = `Maze ${codeStr()} · ${L.nReg} sections · ${L.pairs} gate pairs · ${finishStats().seen}% seen`;
+  $('#win-title').textContent = `depth ${depth} cleared`;
+  $('#st-time').textContent = fmtTime(G.time);
+  $('#st-steps').textContent = Math.round(G.dist * 2);
+  $('#st-jumps').textContent = G.jumps;
+  $('#st-batt').textContent = Math.ceil(G.battery * 100) + '%';
+  $('#btn-next').textContent = `Descend to depth ${depth + 1}`;
+  $('#win').hidden = false;
+  drawMap($('#map'));
+  $('#btn-next').focus();
+}
+function loseLevel() {
+  mode = 'lost'; sfx.caught();
+  G.flash = { c: '#ff2a2a', t: 0 };
+  $('#lose-eyebrow').textContent = `Maze ${codeStr()} · depth ${depth}`;
+  $('#lt-time').textContent = fmtTime(G.time);
+  $('#lt-steps').textContent = Math.round(G.dist * 2);
+  $('#lt-key').textContent = G.hasKey ? 'Yes' : 'No';
+  $('#lt-batt').textContent = Math.ceil(G.battery * 100) + '%';
+  setTimeout(() => {
+    if (mode !== 'lost') return;
+    $('#lose').hidden = false;
+    drawMap($('#map2'));
+    $('#btn-retry').focus();
+  }, reduceMotion ? 0 : 450);
+}
+
+/* ---------- drawing ---------- */
+const FLOOR = ['#706c67', '#6a6661', '#76726c', '#67635e'];
+const hash = (x, y) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
+
+function drawTiles(x0, x1, y0, y1) {
+  const { tiles, TW } = L;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (tiles[y * TW + x] !== 0) continue;
+    ctx.fillStyle = FLOOR[hash(x, y) & 3];
+    ctx.fillRect(x, y, 1.02, 1.02);
+  }
+  ctx.beginPath();
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (tiles[y * TW + x] !== 0) continue;
+    const h = hash(x, y);
+    if (h & 16) { ctx.rect(x + 0.04, y + 0.04, 0.44, 0.92); ctx.rect(x + 0.52, y + 0.04, 0.44, 0.92); }
+    else ctx.rect(x + 0.04, y + 0.04, 0.92, 0.92);
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,0.38)'; ctx.lineWidth = 0.04; ctx.stroke();
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (tiles[y * TW + x] !== 0) continue;
+    const h = hash(x, y);
+    if (h % 7 === 0) { ctx.beginPath(); ctx.arc(x + 0.2 + (h % 60) / 100, y + 0.25 + ((h >> 8) % 50) / 100, 0.06 + (h % 5) / 50, 0, TAU); ctx.fill(); }
+  }
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (tiles[y * TW + x] !== 1) continue;
+    ctx.fillStyle = '#17191f';
+    ctx.fillRect(x, y, 1.02, 1.02);
+    if (y + 1 < L.TH && tiles[(y + 1) * TW + x] === 0) {
+      ctx.fillStyle = '#4a4140'; ctx.fillRect(x, y + 0.62, 1.02, 0.4);
+      ctx.fillStyle = '#6c5f57'; ctx.fillRect(x, y + 0.62, 1.02, 0.05);
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(x, y + 0.8, 1.02, 0.025);
+      const off = (x & 1) ? 0.25 : 0.75;
+      ctx.fillRect(x + off, y + 0.67, 0.025, 0.13);
+      ctx.fillRect(x + ((off + 0.5) % 1), y + 0.82, 0.025, 0.2);
+    }
+  }
+}
+
+function glyph(c, type, x, y, r) {
+  const poly = (n, rot, rr = r) => {
+    for (let i = 0; i < n; i++) {
+      const a = rot + i * TAU / n;
+      i ? c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr) : c.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+    }
+    c.closePath();
+  };
+  c.beginPath();
+  switch (type % 12) {
+    case 0: poly(3, -Math.PI / 2); c.fill(); break;
+    case 1: poly(4, Math.PI / 4); c.fill(); break;
+    case 2: poly(4, 0, r * 1.15); c.fill(); break;
+    case 3: poly(6, 0); c.fill(); break;
+    case 4: c.arc(x, y, r * 0.85, 0, TAU); c.fill(); break;
+    case 5: c.moveTo(x - r, y); c.lineTo(x + r, y); c.moveTo(x, y - r); c.lineTo(x, y + r); c.stroke(); break;
+    case 6: poly(3, Math.PI / 2); c.fill(); break;
+    case 7: poly(4, Math.PI / 4); c.stroke(); break;
+    case 8: poly(4, 0, r * 1.15); c.stroke(); break;
+    case 9: poly(6, 0); c.stroke(); break;
+    case 10: c.arc(x, y, r * 0.85, 0, TAU); c.stroke(); break;
+    case 11:
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 5, rr = i & 1 ? r * 0.45 : r * 1.1;
+        i ? c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr) : c.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+      }
+      c.closePath(); c.fill(); break;
+  }
+}
+
+function drawPortal(p, alpha) {
+  const { x, y, color } = p, r = 0.37;
+  ctx.globalAlpha = alpha;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, '#000'); g.addColorStop(0.65, hexA(color, 0.14)); g.addColorStop(1, hexA(color, 0.5));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  ctx.strokeStyle = hexA(color, 0.6); ctx.lineWidth = 0.035;
+  const spin = reduceMotion ? T * 0.3 : T * 1.7;
+  for (let k = 0; k < 3; k++) {
+    const a = spin + k * TAU / 3;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.62, a, a + 1.0); ctx.stroke();
+  }
+  ctx.fillStyle = color; ctx.strokeStyle = color; ctx.lineWidth = 0.035;
+  glyph(ctx, p.glyph, x, y, 0.1);
+  ctx.lineWidth = 0.085; ctx.strokeStyle = color;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+  ctx.lineWidth = 0.022; ctx.strokeStyle = hexA(color, 0.4);
+  ctx.beginPath(); ctx.arc(x, y, r + 0.08 + Math.sin(T * 3 + p.pair) * 0.015, 0, TAU); ctx.stroke();
+  if (p.pulse > 0) {
+    ctx.lineWidth = 0.06; ctx.strokeStyle = hexA(color, p.pulse);
+    ctx.beginPath(); ctx.arc(x, y, r + (1 - p.pulse) * 1.2, 0, TAU); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawKey(alpha) {
+  if (G.hasKey) return;
+  const x = L.key.x, y = L.key.y + Math.sin(T * 2.4) * 0.05;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath(); ctx.ellipse(L.key.x, L.key.y + 0.2, 0.22, 0.06, 0, 0, TAU); ctx.fill();
+  ctx.strokeStyle = '#e2b24f'; ctx.lineWidth = 0.055; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(x - 0.13, y, 0.1, 0, TAU); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - 0.03, y); ctx.lineTo(x + 0.24, y);
+  ctx.moveTo(x + 0.16, y); ctx.lineTo(x + 0.16, y + 0.08);
+  ctx.moveTo(x + 0.23, y); ctx.lineTo(x + 0.23, y + 0.1); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,245,210,0.9)';
+  const tw = 0.03 + Math.max(0, Math.sin(T * 3.1)) * 0.03;
+  ctx.beginPath(); ctx.arc(x - 0.17, y - 0.06, tw, 0, TAU); ctx.fill();
+  ctx.lineCap = 'butt'; ctx.globalAlpha = 1;
+}
+
+function drawBattery(b, alpha) {
+  const x = b.x, y = b.y + Math.sin(T * 2 + b.x) * 0.03;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath(); ctx.ellipse(b.x, b.y + 0.16, 0.2, 0.05, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#23262c'; ctx.fillRect(x - 0.19, y - 0.1, 0.34, 0.2);
+  ctx.fillStyle = '#9aa0a8'; ctx.fillRect(x + 0.15, y - 0.045, 0.05, 0.09);
+  ctx.strokeStyle = '#9aa0a8'; ctx.lineWidth = 0.03; ctx.strokeRect(x - 0.19, y - 0.1, 0.34, 0.2);
+  const pulse = 0.65 + 0.35 * Math.sin(T * 4 + b.y);
+  ctx.fillStyle = `rgba(123,224,74,${pulse})`;
+  ctx.fillRect(x - 0.15, y - 0.06, 0.08, 0.12); ctx.fillRect(x - 0.05, y - 0.06, 0.08, 0.12);
+  ctx.globalAlpha = 1;
+}
+
+function drawExit(alpha) {
+  const x = L.exit.x - 0.42, y = L.exit.y - 0.42, s = 0.84;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#0c0d10'; ctx.fillRect(x, y, s, s);
+  for (let i = 0; i < 5; i++) {
+    const l = 70 - i * 13;
+    ctx.fillStyle = `rgb(${l},${l - 4},${l - 10})`;
+    ctx.fillRect(x + 0.04, y + 0.04 + i * 0.155, s - 0.08, 0.11);
+  }
+  ctx.strokeStyle = '#5a554d'; ctx.lineWidth = 0.05; ctx.strokeRect(x, y, s, s);
+  if (!G.hasKey) {
+    ctx.strokeStyle = '#8b8f98'; ctx.lineWidth = 0.05;
+    ctx.beginPath();
+    for (let i = 1; i < 5; i++) { ctx.moveTo(x + i * s / 5, y); ctx.lineTo(x + i * s / 5, y + s); }
+    ctx.moveTo(x, y + s / 2); ctx.lineTo(x + s, y + s / 2);
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = 'rgba(190,226,255,0.6)'; ctx.lineWidth = 0.03;
+    ctx.strokeRect(x - 0.05, y - 0.05, s + 0.1, s + 0.1);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawHunterEyes(h, color, alpha) {
+  const f = h.face, px = -Math.sin(f), py = Math.cos(f);
+  const ex = h.x + Math.cos(f) * 0.13, ey = h.y + Math.sin(f) * 0.13;
+  ctx.globalAlpha = alpha; ctx.fillStyle = color;
+  for (const s of [-1, 1]) {
+    ctx.beginPath(); ctx.ellipse(ex + px * 0.075 * s, ey + py * 0.075 * s, 0.04, 0.028, f, 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function drawHunter(h) {
+  const { x, y } = h, wob = reduceMotion ? 0 : T;
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.beginPath(); ctx.ellipse(x, y + 0.12, 0.42, 0.22, 0, 0, TAU); ctx.fill();
+  ctx.strokeStyle = '#0a090c'; ctx.lineWidth = 0.05; ctx.lineCap = 'round';
+  for (let i = 0; i < 9; i++) {
+    const a = i * TAU / 9 + Math.sin(wob * 1.3 + i) * 0.3, l = 0.44 + 0.09 * Math.sin(wob * 5 + i * 2.1);
+    ctx.beginPath();
+    ctx.moveTo(x + Math.cos(a) * 0.18, y + Math.sin(a) * 0.18);
+    ctx.quadraticCurveTo(x + Math.cos(a + 0.45) * l * 0.75, y + Math.sin(a + 0.45) * l * 0.75, x + Math.cos(a) * l, y + Math.sin(a) * l);
+    ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+  ctx.fillStyle = '#0a090c';
+  ctx.beginPath();
+  for (let i = 0; i < 7; i++) {
+    const a = i * TAU / 7 + wob * 0.9, cx = x + Math.cos(a) * 0.1, cy = y + Math.sin(a) * 0.1, rr = 0.2 + 0.05 * Math.sin(wob * 4 + i * 1.7);
+    ctx.moveTo(cx + rr, cy); ctx.arc(cx, cy, rr, 0, TAU);
+  }
+  ctx.fill();
+  drawHunterEyes(h, h.state === 'hunt' ? '#ff3b30' : '#cfd8d4', 1);
+}
+
+function drawPlayer() {
+  const { px, py, aim } = G;
+  const lit = G.lightOn && G.battery > 0;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(px, py + 0.12, 0.27, 0.15, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#b9a27a'; ctx.strokeStyle = '#2a2219'; ctx.lineWidth = 0.04;
+  ctx.beginPath(); ctx.arc(px, py, PR - 0.02, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#6e5a3e';
+  ctx.beginPath(); ctx.arc(px - Math.cos(aim) * 0.06, py - Math.sin(aim) * 0.06, 0.15, 0, TAU); ctx.fill();
+  const lx = px + Math.cos(aim) * 0.22, ly = py + Math.sin(aim) * 0.22;
+  ctx.fillStyle = '#3a3229'; ctx.beginPath(); ctx.arc(lx, ly, 0.075, 0, TAU); ctx.fill();
+  ctx.fillStyle = lit ? '#fff3c8' : '#4a453c';
+  ctx.beginPath(); ctx.arc(lx + Math.cos(aim) * 0.03, ly + Math.sin(aim) * 0.03, 0.045, 0, TAU); ctx.fill();
+}
+
+function render() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  ctx.fillStyle = '#05060a'; ctx.fillRect(0, 0, W, H);
+  const ox = W / 2 - G.camX * S, oy = H / 2 - G.camY * S;
+  const hw = W / 2 / S, hh = H / 2 / S;
+  const x0 = Math.max(0, Math.floor(G.camX - hw) - 1), x1 = Math.min(L.TW - 1, Math.ceil(G.camX + hw) + 1);
+  const y0 = Math.max(0, Math.floor(G.camY - hh) - 1), y1 = Math.min(L.TH - 1, Math.ceil(G.camY + hh) + 1);
+  const inView = (x, y) => x > x0 - 1 && x < x1 + 2 && y > y0 - 1 && y < y1 + 2;
+
+  ctx.setTransform(S, 0, 0, S, ox, oy);
+  drawTiles(x0, x1, y0, y1);
+  if (inView(L.exit.x, L.exit.y)) drawExit(1);
+  if (inView(L.key.x, L.key.y)) drawKey(1);
+  for (const b of G.batt) if (!b.taken && inView(b.x, b.y)) drawBattery(b, 1);
+  for (const p of L.portals) if (inView(p.x, p.y)) drawPortal(p, 1);
+  ctx.fillStyle = 'rgba(255,240,210,0.55)';
+  for (const m of motes) { ctx.beginPath(); ctx.arc(m.x + Math.sin(m.ph) * 0.05, m.y, m.s, 0, TAU); ctx.fill(); }
+  drawPlayer();
+  for (const h of G.hunters) if (inView(h.x, h.y)) drawHunter(h);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = '#ffe3ba'; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'source-over';
+
+  // light: flashlight cone (when on) + a halo, both shadowed by walls
+  const { px, py, aim } = G;
+  const lit = G.lightOn && G.battery > 0;
+  lctx.setTransform(1, 0, 0, 1, 0, 0);
+  lctx.globalCompositeOperation = 'source-over';
+  lctx.clearRect(0, 0, W, H);
+  lctx.setTransform(S, 0, 0, S, ox, oy);
+  if (lit) {
+    const weak = clamp(G.battery / 0.25, 0, 1);
+    const range = RANGE * (0.5 + 0.5 * weak);
+    const inten = G.flick > 0 ? 0.22 : 1;
+    const cone = rayPoly(px, py, aim - HALF, aim + HALF, 150, range);
+    const rg = lctx.createRadialGradient(px, py, 0.3, px, py, range);
+    rg.addColorStop(0, `rgba(0,0,0,${inten})`); rg.addColorStop(0.55, `rgba(0,0,0,${0.88 * inten})`); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    lctx.fillStyle = rg; pathPoly(lctx, cone, px, py); lctx.fill();
+    if (typeof lctx.createConicGradient === 'function') {
+      lctx.globalCompositeOperation = 'destination-in';
+      const f = HALF / TAU;
+      const cg = lctx.createConicGradient(aim - Math.PI, px, py);
+      cg.addColorStop(0, 'rgba(0,0,0,0)'); cg.addColorStop(0.5 - f, 'rgba(0,0,0,0)');
+      cg.addColorStop(0.5 - f * 0.45, 'rgba(0,0,0,1)'); cg.addColorStop(0.5 + f * 0.45, 'rgba(0,0,0,1)');
+      cg.addColorStop(0.5 + f, 'rgba(0,0,0,0)'); cg.addColorStop(1, 'rgba(0,0,0,0)');
+      lctx.fillStyle = cg; lctx.fillRect(G.camX - hw * 2, G.camY - hh * 2, hw * 4, hh * 4);
+    }
+    lctx.globalCompositeOperation = 'lighter';
+    const halo = rayPoly(px, py, 0, TAU, 80, HALO);
+    const hg = lctx.createRadialGradient(px, py, 0.2, px, py, HALO);
+    hg.addColorStop(0, `rgba(0,0,0,${0.75 * inten})`); hg.addColorStop(1, 'rgba(0,0,0,0)');
+    lctx.fillStyle = hg; pathPoly(lctx, halo); lctx.fill();
+  } else {
+    const halo = rayPoly(px, py, 0, TAU, 48, DARK_HALO);
+    const hg = lctx.createRadialGradient(px, py, 0.1, px, py, DARK_HALO);
+    hg.addColorStop(0, 'rgba(0,0,0,0.45)'); hg.addColorStop(1, 'rgba(0,0,0,0)');
+    lctx.fillStyle = hg; pathPoly(lctx, halo); lctx.fill();
+  }
+  markSeen(Math.floor(px), Math.floor(py));
+
+  dctx.setTransform(1, 0, 0, 1, 0, 0);
+  dctx.globalCompositeOperation = 'source-over'; dctx.globalAlpha = 1;
+  dctx.fillStyle = '#030407'; dctx.fillRect(0, 0, W, H);
+  dctx.globalCompositeOperation = 'destination-out';
+  dctx.setTransform(S, 0, 0, S, ox, oy);
+  dctx.imageSmoothingEnabled = false;
+  dctx.globalAlpha = MEMORY; dctx.drawImage(mem, 0, 0);
+  dctx.globalAlpha = 1;
+  dctx.setTransform(1, 0, 0, 1, 0, 0);
+  dctx.drawImage(light, 0, 0);
+  ctx.drawImage(dark, 0, 0);
+
+  // self-lit things glow down corridors: gate rims, the key, batteries, the open stairs, hunting eyes
+  ctx.setTransform(S, 0, 0, S, ox, oy);
+  const glowAt = (x, y, color, rad, a) => {
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, hexA(color, a)); g.addColorStop(1, hexA(color, 0));
+    ctx.fillStyle = g; ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    ctx.globalCompositeOperation = 'source-over';
+  };
+  const visible = (x, y, maxD) => inView(x, y) && Math.hypot(x - px, y - py) < maxD && lineOfSight(px, py, x, y);
+  for (const p of L.portals) {
+    if (!visible(p.x, p.y, 16)) continue;
+    const a = clamp(1.05 - Math.hypot(p.x - px, p.y - py) / 16, 0.3, 0.9);
+    glowAt(p.x, p.y, p.color, 1.5, 0.32 * a);
+    drawPortal(p, a);
+  }
+  if (!G.hasKey && visible(L.key.x, L.key.y, 12)) {
+    const d = Math.hypot(L.key.x - px, L.key.y - py);
+    glowAt(L.key.x, L.key.y, '#ffc65a', 0.9, 0.3); drawKey(clamp(1 - d / 14, 0.35, 0.9));
+  }
+  for (const b of G.batt) {
+    if (b.taken || !visible(b.x, b.y, 8)) continue;
+    glowAt(b.x, b.y, '#7be04a', 0.7, 0.22);
+  }
+  if (G.hasKey && visible(L.exit.x, L.exit.y, 14)) glowAt(L.exit.x, L.exit.y, '#bfe3ff', 1.3, 0.28);
+  for (const h of G.hunters) {
+    if (h.state !== 'hunt' || !visible(h.x, h.y, 11)) continue;
+    glowAt(h.x, h.y, '#ff2a1f', 0.5, 0.25);
+    drawHunterEyes(h, '#ff3b30', 0.95);
+  }
+
+  // screen space: vignette, danger edge, flashes, touch stick
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.6);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.6)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  if (G.threat > 0 && mode === 'play') {
+    const pulse = reduceMotion ? 1 : 0.75 + 0.25 * Math.sin(T * (4 + G.threat * 6));
+    const rg2 = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.hypot(W, H) * 0.55);
+    rg2.addColorStop(0, 'rgba(160,10,10,0)'); rg2.addColorStop(1, `rgba(160,10,10,${0.4 * G.threat * pulse})`);
+    ctx.fillStyle = rg2; ctx.fillRect(0, 0, W, H);
+  }
+  if (G.flash) {
+    const k = 1 - G.flash.t / 0.5;
+    ctx.fillStyle = hexA(G.flash.c, (reduceMotion ? 0.15 : 0.4) * k * k);
+    ctx.fillRect(0, 0, W, H);
+    if (!reduceMotion) {
+      const sx = (G.px - G.camX) * S + W / 2, sy = (G.py - G.camY) * S + H / 2;
+      ctx.strokeStyle = hexA(G.flash.c, 0.8 * k); ctx.lineWidth = 3 * DPR;
+      ctx.beginPath(); ctx.arc(sx, sy, (0.4 + (1 - k) * 2.5) * S, 0, TAU); ctx.stroke();
+    }
+  }
+  if (stick) {
+    ctx.strokeStyle = 'rgba(236,228,210,0.25)'; ctx.lineWidth = 2 * DPR;
+    ctx.beginPath(); ctx.arc(stick.ox * DPR, stick.oy * DPR, 50 * DPR, 0, TAU); ctx.stroke();
+    const dx = stick.x - stick.ox, dy = stick.y - stick.oy, l = Math.hypot(dx, dy), k = l > 50 ? 50 / l : 1;
+    ctx.fillStyle = 'rgba(236,228,210,0.3)';
+    ctx.beginPath(); ctx.arc((stick.ox + dx * k) * DPR, (stick.oy + dy * k) * DPR, 20 * DPR, 0, TAU); ctx.fill();
+  }
+}
+
+/* ---------- reveal map at the end of a run ---------- */
+function drawMap(mc) {
+  const m = mc.getContext('2d');
+  const maxW = Math.min(480, innerWidth - 80), maxH = Math.min(innerHeight * 0.36, 420);
+  const k = Math.max(2, Math.min(maxW / L.TW, maxH / L.TH));
+  mc.style.width = Math.round(L.TW * k) + 'px'; mc.style.height = Math.round(L.TH * k) + 'px';
+  mc.width = Math.round(L.TW * k * DPR); mc.height = Math.round(L.TH * k * DPR);
+  m.setTransform(k * DPR, 0, 0, k * DPR, 0, 0);
+  m.fillStyle = '#08090c'; m.fillRect(0, 0, L.TW, L.TH);
+  for (let y = 0; y < L.TH; y++) for (let x = 0; x < L.TW; x++) {
+    const i = y * L.TW + x;
+    if (L.tiles[i] !== 0) continue;
+    const hue = (L.tileReg[i] * 360 / L.nReg + 20) % 360;
+    m.fillStyle = `hsl(${hue} ${G.seen[i] ? 22 : 12}% ${G.seen[i] ? 34 : 18}%)`;
+    m.fillRect(x, y, 1.02, 1.02);
+  }
+  m.setLineDash([0.8, 0.6]); m.lineWidth = 0.35;
+  L.portals.forEach((p, i) => {
+    if (p.partner < i) return;
+    const q = L.portals[p.partner];
+    const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2, dx = q.x - p.x, dy = q.y - p.y;
+    m.strokeStyle = hexA(p.color, G.used.has(p.pair) ? 0.85 : 0.4);
+    m.beginPath(); m.moveTo(p.x, p.y); m.quadraticCurveTo(mx - dy * 0.2, my + dx * 0.2, q.x, q.y); m.stroke();
+  });
+  m.setLineDash([]);
+  m.strokeStyle = '#ffd27a'; m.lineWidth = 0.32; m.lineJoin = 'round'; m.lineCap = 'round';
+  m.beginPath();
+  let pen = false;
+  for (const pt of G.trail) {
+    if (!pt) { pen = false; continue; }
+    pen ? m.lineTo(pt[0], pt[1]) : m.moveTo(pt[0], pt[1]); pen = true;
+  }
+  if (pen) m.lineTo(G.px, G.py);
+  m.stroke();
+  for (const p of L.portals) {
+    m.fillStyle = '#08090c'; m.beginPath(); m.arc(p.x, p.y, 0.85, 0, TAU); m.fill();
+    m.strokeStyle = p.color; m.lineWidth = 0.35; m.beginPath(); m.arc(p.x, p.y, 0.7, 0, TAU); m.stroke();
+  }
+  m.fillStyle = '#7be04a';
+  for (const b of G.batt) if (!b.taken) m.fillRect(b.x - 0.45, b.y - 0.3, 0.9, 0.6);
+  m.strokeStyle = '#ece4d2'; m.lineWidth = 0.3; m.beginPath(); m.arc(L.start.x, L.start.y, 0.6, 0, TAU); m.stroke();
+  if (!G.hasKey) { m.fillStyle = '#e2b24f'; m.beginPath(); m.arc(L.key.x, L.key.y, 0.6, 0, TAU); m.fill(); }
+  m.fillStyle = '#bfe3ff'; m.fillRect(L.exit.x - 0.6, L.exit.y - 0.6, 1.2, 1.2);
+  m.strokeStyle = '#ff3b30'; m.lineWidth = 0.4;
+  for (const h of G.hunters) {
+    m.beginPath(); m.moveTo(h.x - 0.7, h.y - 0.7); m.lineTo(h.x + 0.7, h.y + 0.7); m.moveTo(h.x + 0.7, h.y - 0.7); m.lineTo(h.x - 0.7, h.y + 0.7); m.stroke();
+  }
+}
+
+/* ---------- loop & boot ---------- */
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; T += dt;
+  update(dt); render(); updateTimer();
+  requestAnimationFrame(loop);
+}
+function start(data) {
+  resize();
+  newLevel(Number.isFinite(data?.seed) ? data.seed : randSeed(), data?.depth || 1);
+  showBest();
+  if (data?.mode === 'play') { mode = 'play'; $('#intro').hidden = true; }
+  requestAnimationFrame(t => { last = t; loop(t); });
+}
+window.claude?.hot?.snapshot?.(() => ({ seed: L?.seed, depth, mode: mode === 'intro' ? 'intro' : 'play' }));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+
+</body>
+</html>
